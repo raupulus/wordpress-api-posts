@@ -33,9 +33,18 @@ require '../models/ErrorRequest.php';
  * @param  [type] $REQUEST_METHOD [description]
  * @return [type]                 [description]
  */
-function validateRequest($REQUEST_METHOD = null)
+function validateRequest($method = null)
 {
-    // if ($REQUEST_METHOD === 'GET') {
+    // TODO → Extraer el token de la aplicación y track de git cuando
+    // establezca la versión para producción.
+
+    $token = '4e91d347780812cfa0d2dc38ed115c8e79493a24afec5aeed56ed90b52ae4976';
+
+    if (!isset($_GET['token']) || ($_GET['token'] != $token)) {
+        //return false;
+    }
+
+    // if ($method === 'GET') {
     if (true) {
         return true;
     }
@@ -47,60 +56,124 @@ function validateRequest($REQUEST_METHOD = null)
  * Prepara una respuesta con error, ya sea por autenticación o externo.
  * @return [type] [description]
  */
-function errorResponse()
+function errorResponse($msg = 'En estos momentos no se pueden obtener los datos')
 {
     return [
-        'error' => '???',
+        'status' => 'ko',
+        'results' => 0,
+        'total_results' => 0,
+        'data' => [],
+        'message' => $msg,
     ];
 }
 
 ## Aquí valido si tiene permisos para trabajar con esta API y devuelve datos.
 if (validateRequest(isset($REQUEST_METHOD) ? $REQUEST_METHOD : null)) {
     ## Instancio objeto con datos de Aplicación.
-    $DB = new DbConnection([
-        'DB_NAME' => DB_NAME,
-        'DB_HOST' => DB_HOST,
-        'DB_PORT' => defined('DB_PORT') ? DB_PORT : '3306',
-        'DB_USER' => DB_USER,
-        'DB_CHARSET' => DB_CHARSET,
-        'DB_COLLATE' => DB_COLLATE,
-        'DB_PASSWORD' => DB_PASSWORD,
-        'OPTIONS' => [],
-        'TABLE_PREFIX' => $table_prefix,
-    ]);
 
-    //$categories = $DB->getCategories();
-    $posts = $DB->getPosts();
-    //$postByCategory = $DB->getPostsByCategory(491);  // 490-Seguridad, 491-Linux
+    try {
+        $DB = new DbConnection([
+            'DB_NAME' => DB_NAME,
+            'DB_HOST' => DB_HOST,
+            'DB_PORT' => defined('DB_PORT') ? DB_PORT : '3306',
+            'DB_USER' => DB_USER,
+            'DB_CHARSET' => DB_CHARSET,
+            'DB_COLLATE' => DB_COLLATE,
+            'DB_PASSWORD' => DB_PASSWORD,
+            'OPTIONS' => [],
+            'TABLE_PREFIX' => $table_prefix,
+        ]);
+    } catch (\Exception $e) {
+        return json_encode(error_response('Problema con la DB'));
+        die();
+    }
 
-    /*
-    echo json_encode([
-        'status' => 'ok',
-        'results' => count($categories['data']),  ## Resultados que se envían
-        'totalResults' => $categories['results'],  ## Total de resultados en DB
-        'data' => $categories['data']
-    ]);
-    */
+    if (! $DB) {
+        return json_encode(error_response('Problema con la DB'));
+        die();
+    }
 
-    /*
-    echo json_encode([
-        'status' => 'ok',
-        'results' => count($postByCategory['data']),  ## Resultados que se envían
-        'totalResults' => $postByCategory['results'],  ## Total de resultados en DB
-        'data' => $postByCategory['data']
-    ]);
-    */
 
-    echo json_encode([
-        'status' => 'ok',
-        'results' => $posts['results'],  ## Resultados que se envían
-        'totalResults' => $posts['totalResults'],  ## Total de resultados en DB
-        'data' => $posts['data']
-    ]);
+
+
+    // TODO → COmprobar parámetros por $_GET[] en la conexión a la db.
+
+
+
+
+    ## Búsqueda por título o contenido.
+    if (isset($_GET['search'])) {
+        $DB->search = $_GET['search'];
+    }
+
+    ## Página de contenido (paginado según el límit por petición).
+    if (isset($_GET['page'])) {
+        $DB->page = $_GET['page'];
+    }
+
+    ## Categoría de la que traer los posts.
+    if (isset($_GET['category'])) {
+        $DB->category = $_GET['category'];
+    }
+
+    ## Devuelve las categorías.
+    if (isset($_GET['categories']) && ($_GET['categories'] === 'true')) {
+        $DB->limit = 200;
+        $categories = $DB->getCategories();
+
+        if (! $categories) {
+            return json_encode(error_response('No hay Categorías'));
+        }
+
+        echo json_encode([
+            'status' => 'ok',
+            'results' => count($categories['data']),  ## Resultados que se envían
+            'total_results' => $categories['results'],  ## Total de resultados en DB
+            'data' => $categories['data']
+        ]);
+
+        die();
+    }
+
+    ## Devuelve los posts filtrados y paginado por una categoría concreta.
+    if ($DB->category) {
+        $postByCategory = $DB->getPostsByCategory();
+
+        if (! $postByCategory) {
+            return json_encode(error_response('Error al obtener posts para esta categoría'));
+        }
+
+        echo json_encode([
+            'status' => 'ok',
+            'results' => count($postByCategory['data']),  ## Resultados que se envían
+            'total_results' => $postByCategory['results'],  ## Total de resultados en DB
+            'data' => $postByCategory['data']
+        ]);
+
+        die();
+    }
+
+    ## Devuelve los posts filtrados y paginado.
+    if (true) {
+        $posts = $DB->getPosts();
+
+        if (! $posts) {
+            return json_encode(error_response());
+        }
+
+        echo json_encode([
+            'status' => 'ok',
+            'results' => $posts['results'],  ## Resultados que se envían
+            'total_results' => $posts['totalResults'],  ## Total de resultados en DB
+            'data' => $posts['data']
+        ]);
+
+        die();
+    }
 
     $DB->close();
 } else {
-    echo json_encode('NO VALIDA');
+    echo json_encode(errorResponse());
 }
 
 die();

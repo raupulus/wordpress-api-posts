@@ -48,6 +48,13 @@ class DbConnection
     ## Cantidad elementos.
     public $quantity = 20;
 
+    ## Cadena por la que filtrar.
+    public $search = null;
+
+    ## Categoría por la que filtrar.
+    public $category = null;
+
+
     public function __construct($params = [])
     {
         ## Mezclo parámetros de conexión para la DB con los internos.
@@ -411,8 +418,10 @@ EOL;
      *                  ]
      *               ]
      */
-    public function getPostsByCategory($category_id)
+    public function getPostsByCategory()
     {
+        $category_id = $this->category;
+
         $tablePosts = $this->table_prefix . 'posts';
         $tableUsers = $this->table_prefix . 'users';
         $tablePostMeta = $this->table_prefix . 'postmeta';
